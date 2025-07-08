@@ -1,5 +1,6 @@
 package com.nazire.booktrack.security;
 
+import com.nazire.booktrack.service.TokenBlacklistService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -20,6 +21,11 @@ public class JwtUtil {
     private static final String SECRET = "nazireilegucluolanzincirikirsarjetburda";
 
     private final Key key = Keys.hmacShaKeyFor(SECRET.getBytes());
+    private final TokenBlacklistService tokenBlacklistService;
+
+    public JwtUtil(TokenBlacklistService tokenBlacklistService) {
+        this.tokenBlacklistService = tokenBlacklistService;
+    }
 
     public String generateToken(String email) {
         return Jwts.builder()
@@ -60,9 +66,11 @@ public class JwtUtil {
         return extractExpiration(token).before(new Date());
     }
 
-    // Token'ı doğrular (kullanıcı adı eşleşmesi ve süre kontrolü)
+    // Token'ı doğrular (kullanıcı adı eşleşmesi, süre kontrolü ve blacklist kontrolü)
     public Boolean validateToken(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+        return (username.equals(userDetails.getUsername()) 
+                && !isTokenExpired(token) 
+                && !tokenBlacklistService.isTokenBlacklisted(token));
     }
 }

@@ -13,6 +13,9 @@ public class User {
     private String email;  // zorunlu
     private String password; // şifrelenmiş olacak
     private String username; // isteğe bağlı, hitap için
+    
+    @Column(length = 1000)
+    private String lastToken; // kullanıcının son token'ı
 
     public User() {}
 
@@ -52,5 +55,13 @@ public class User {
 
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    public String getLastToken() {
+        return lastToken;
+    }
+
+    public void setLastToken(String lastToken) {
+        this.lastToken = lastToken;
     }
 }
