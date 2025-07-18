@@ -2,7 +2,6 @@ package com.nazire.booktrack.service;
 
 import org.springframework.stereotype.Service;
 
-import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -21,10 +20,5 @@ public class TokenBlacklistService {
         boolean isBlacklisted = blacklistedTokens.contains(token);
         System.out.println("Token blacklist kontrolü: " + token.substring(0, 20) + "... -> " + isBlacklisted);
         return isBlacklisted;
-    }
-    
-    public void clearExpiredTokens() {
-        // Periodically clean up expired tokens
-        // metod scheduler ile çalıştırılabilir
     }
 } 

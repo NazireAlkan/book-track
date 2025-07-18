@@ -2,6 +2,9 @@ package com.nazire.booktrack.model;
 
 import jakarta.persistence.*;
 
+import java.util.HashSet;
+import java.util.Set;
+
 @Entity
 @Table(name = "users")
 public class User {
@@ -15,7 +18,18 @@ public class User {
     private String username; // isteğe bağlı, hitap için
     
     @Column(length = 1000)
-    private String lastToken; // kullanıcının son token'ı
+    private String lastToken; // kullanıcının son access token'ı
+    
+    @Column(length = 1000)
+    private String refreshToken; // kullanıcının aktif refresh token'ı
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "user_roles",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    private Set<Role> roles = new HashSet<>();
 
     public User() {}
 
@@ -63,5 +77,21 @@ public class User {
 
     public void setLastToken(String lastToken) {
         this.lastToken = lastToken;
+    }
+
+    public String getRefreshToken() {
+        return refreshToken;
+    }
+
+    public void setRefreshToken(String refreshToken) {
+        this.refreshToken = refreshToken;
+    }
+
+    public Set<Role> getRoles() {
+        return roles;
+    }
+
+    public void setRoles(Set<Role> roles) {
+        this.roles = roles;
     }
 }

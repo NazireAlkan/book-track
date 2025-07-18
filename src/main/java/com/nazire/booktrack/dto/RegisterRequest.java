@@ -11,6 +11,5 @@ public class RegisterRequest {
     @NotBlank(message = "Şifre boş bırakılamaz.")
     public String password;
 
-
     public String username; // opsiyonel
 }

@@ -1,17 +1,22 @@
 package com.nazire.booktrack.dto;
 
 public class LoginResponse {
-    public String token;
+    public String accessToken;
+    public String refreshToken;
     public String tokenType;
     public String email;
     public String username;
-    public Long expiresIn; // saniye cinsinden
+    public Long accessTokenExpiresIn; // access token süresi (saniye)
+    public Long refreshTokenExpiresIn; // refresh token süresi (saniye)
 
-    public LoginResponse(String token, String email, String username, Long expiresIn) {
-        this.token = token;
+    public LoginResponse(String accessToken, String refreshToken, String email, String username, 
+                        Long accessTokenExpiresIn, Long refreshTokenExpiresIn) {
+        this.accessToken = accessToken;
+        this.refreshToken = refreshToken;
         this.tokenType = "Bearer";
         this.email = email;
         this.username = username;
-        this.expiresIn = expiresIn;
+        this.accessTokenExpiresIn = accessTokenExpiresIn;
+        this.refreshTokenExpiresIn = refreshTokenExpiresIn;
     }
 }

@@ -12,13 +12,15 @@ import java.security.Key;
 import java.util.Date;
 import java.util.function.Function;
 
-import static javax.crypto.Cipher.SECRET_KEY;
-
 //Bu sınıf JWT token üretmek ve doğrulamak için.
 @Component
 public class JwtUtil {
 
     private static final String SECRET = "nazireilegucluolanzincirikirsarjetburda";
+    
+    // Token süreleri
+    private static final long ACCESS_TOKEN_VALIDITY =  60 * 10 * 1000; // 10 dakika
+    private static final long REFRESH_TOKEN_VALIDITY = 7 * 24 * 60 * 60 * 1000; // 7 gün
 
     private final Key key = Keys.hmacShaKeyFor(SECRET.getBytes());
     private final TokenBlacklistService tokenBlacklistService;
@@ -27,11 +29,24 @@ public class JwtUtil {
         this.tokenBlacklistService = tokenBlacklistService;
     }
 
-    public String generateToken(String email) {
+    // Access Token üretir (5 dakika)
+    public String generateAccessToken(String email) {
         return Jwts.builder()
                 .setSubject(email)
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + 86400000)) // 1 gün
+                .setExpiration(new Date(System.currentTimeMillis() + ACCESS_TOKEN_VALIDITY))
+                .claim("type", "access")
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    // Refresh Token üretir (7 gün)
+    public String generateRefreshToken(String email) {
+        return Jwts.builder()
+                .setSubject(email)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + REFRESH_TOKEN_VALIDITY))
+                .claim("type", "refresh")
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
@@ -44,6 +59,11 @@ public class JwtUtil {
     // Token'dan expiration date'i çıkarır
     public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
+    }
+
+    // Token tipini kontrol eder
+    public String extractTokenType(String token) {
+        return extractClaim(token, claims -> claims.get("type", String.class));
     }
 
     // Token'dan belirli bir claim'i çıkarır
@@ -66,11 +86,31 @@ public class JwtUtil {
         return extractExpiration(token).before(new Date());
     }
 
-    // Token'ı doğrular (kullanıcı adı eşleşmesi, süre kontrolü ve blacklist kontrolü)
-    public Boolean validateToken(String token, UserDetails userDetails) {
+    // Access Token'ı doğrular
+    public Boolean validateAccessToken(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
+        final String tokenType = extractTokenType(token);
         return (username.equals(userDetails.getUsername()) 
                 && !isTokenExpired(token) 
+                && "access".equals(tokenType)
                 && !tokenBlacklistService.isTokenBlacklisted(token));
+    }
+
+    // Refresh Token'ı doğrular
+    public Boolean validateRefreshToken(String token) {
+        final String tokenType = extractTokenType(token);//refresh ok
+        return (!isTokenExpired(token) // true
+                && "refresh".equals(tokenType)
+                && !tokenBlacklistService.isTokenBlacklisted(token));
+    }
+
+    // Access token süresi getter'ı
+    public long getAccessTokenValidityInSeconds() {
+        return ACCESS_TOKEN_VALIDITY / 1000;
+    }
+
+    // Refresh token süresi getter'ı
+    public long getRefreshTokenValidityInSeconds() {
+        return REFRESH_TOKEN_VALIDITY / 1000;
     }
 }

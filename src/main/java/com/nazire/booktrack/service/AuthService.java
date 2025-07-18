@@ -3,7 +3,9 @@ package com.nazire.booktrack.service;
 import com.nazire.booktrack.dto.LoginRequest;
 import com.nazire.booktrack.dto.LoginResponse;
 import com.nazire.booktrack.dto.RegisterRequest;
+import com.nazire.booktrack.model.Role;
 import com.nazire.booktrack.model.User;
+import com.nazire.booktrack.repository.RoleRepository;
 import com.nazire.booktrack.repository.UserRepository;
 import com.nazire.booktrack.security.JwtUtil;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,13 +18,16 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final TokenBlacklistService tokenBlacklistService;
+    private final RoleRepository roleRepository;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, 
-                      JwtUtil jwtUtil, TokenBlacklistService tokenBlacklistService) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
+                       JwtUtil jwtUtil, TokenBlacklistService tokenBlacklistService, RoleRepository roleRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.tokenBlacklistService = tokenBlacklistService;
+        this.roleRepository = roleRepository;
+
     }
 
     public String register(RegisterRequest request){
@@ -36,6 +41,10 @@ public class AuthService {
                 request.username != null ? request.username : ""
         );
 
+        Role userRole = roleRepository.findByName("ROLE_USER")
+                        .orElseThrow(() -> new RuntimeException("ROLE_USER bulunamadı"));
+        user.getRoles().add(userRole);
+
         userRepository.save(user);
         return "Hoşgeldin, " + (user.getUsername().isEmpty() ? "kullanıcı" : user.getUsername()) + "!";
     }
@@ -48,57 +57,89 @@ public class AuthService {
             throw new RuntimeException("Şifre hatalı.");
         }
 
-        // Eğer kullanıcının eski token'ı varsa blacklist'e ekle
+        // Eğer kullanıcının eski token'ları varsa blacklist'e ekle
         if (user.getLastToken() != null && !user.getLastToken().isEmpty()) {
             tokenBlacklistService.blacklistToken(user.getLastToken());
         }
+        if (user.getRefreshToken() != null && !user.getRefreshToken().isEmpty()) {
+            tokenBlacklistService.blacklistToken(user.getRefreshToken());
+        }
 
-        // Yeni token oluştur
-        String token = jwtUtil.generateToken(user.getEmail());
+        // Yeni token'ları oluştur
+        String accessToken = jwtUtil.generateAccessToken(user.getEmail());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
         
-        // Yeni token'ı kullanıcıya kaydet
-        user.setLastToken(token);
+        // Yeni token'ları kullanıcıya kaydet
+        user.setLastToken(accessToken);
+        user.setRefreshToken(refreshToken);
         userRepository.save(user);
         
         return new LoginResponse(
-            token,
+            accessToken,
+            refreshToken,
             user.getEmail(),
             user.getUsername(),
-            86400L // 1 gün = 86400 saniye
+            jwtUtil.getAccessTokenValidityInSeconds(),
+            jwtUtil.getRefreshTokenValidityInSeconds()
         );
     }
 
-    // Logout işlemi - token'ı blacklist'e ekler
+    // Logout işlemi - token'ları blacklist'e ekler
     public String logout(String token) {
         tokenBlacklistService.blacklistToken(token);
         
-        // Token'dan email çıkar ve kullanıcının lastToken'ını temizle
+        // Token'dan email çıkar ve kullanıcının token'larını temizle
         String email = jwtUtil.extractUsername(token);
         var user = userRepository.findByEmail(email);
         if (user.isPresent()) {
+            // Refresh token'ı da blacklist'e ekle
+            if (user.get().getRefreshToken() != null) {
+                tokenBlacklistService.blacklistToken(user.get().getRefreshToken());
+            }
             user.get().setLastToken(null);
+            user.get().setRefreshToken(null);
             userRepository.save(user.get());
         }
         
         return "Başarıyla çıkış yapıldı.";
     }
 
-    // Yeni token alırken eski token'ı geçersiz kılar
-    public LoginResponse refreshToken(String oldToken, String email) {
-        // Eski token'ı blacklist'e ekle
-        tokenBlacklistService.blacklistToken(oldToken);
+    // Refresh token ile yeni access token al
+    public LoginResponse refreshToken(String refreshToken) {
+        // Refresh token'ı doğrula
+        if (!jwtUtil.validateRefreshToken(refreshToken)) {
+            throw new RuntimeException("Geçersiz refresh token.");
+        }
         
-        // Yeni token oluştur
-        String newToken = jwtUtil.generateToken(email);
-        
+        // Refresh token'dan email çıkar
+        String email = jwtUtil.extractUsername(refreshToken);
         var user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Kullanıcı bulunamadı."));
         
+        // Kullanıcının kaydedilmiş refresh token'ı ile gelen token'ı karşılaştır
+        if (!refreshToken.equals(user.getRefreshToken())) {
+            throw new RuntimeException("Refresh token eşleşmiyor.");
+        }
+        
+        // Eski access token'ı blacklist'e ekle (eğer varsa)
+        if (user.getLastToken() != null && !user.getLastToken().isEmpty()) {
+            tokenBlacklistService.blacklistToken(user.getLastToken());
+        }
+        
+        // Yeni access token oluştur
+        String newAccessToken = jwtUtil.generateAccessToken(email);
+        
+        // Yeni access token'ı kaydet
+        user.setLastToken(newAccessToken);
+        userRepository.save(user);
+        
         return new LoginResponse(
-            newToken,
+            newAccessToken,
+            refreshToken, // Refresh token aynı kalır
             user.getEmail(),
             user.getUsername(),
-            86400L
+            jwtUtil.getAccessTokenValidityInSeconds(),
+            jwtUtil.getRefreshTokenValidityInSeconds()
         );
     }
 }

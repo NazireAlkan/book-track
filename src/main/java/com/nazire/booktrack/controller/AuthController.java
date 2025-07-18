@@ -48,11 +48,9 @@ public class AuthController {
     public LoginResponse refreshToken(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String oldToken = authHeader.substring(7);
-            // Token'dan email çıkar
-            String email = jwtUtil.extractUsername(oldToken);
-            return authService.refreshToken(oldToken, email);
+            String refreshToken = authHeader.substring(7);
+            return authService.refreshToken(refreshToken);
         }
-        throw new RuntimeException("Token bulunamadı.");
+        throw new RuntimeException("Refresh token bulunamadı.");
     }
 }
