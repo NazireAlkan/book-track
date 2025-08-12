@@ -19,15 +19,16 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final TokenBlacklistService tokenBlacklistService;
     private final RoleRepository roleRepository;
+    private final LoginAttemptService loginAttemptService;
 
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
-                       JwtUtil jwtUtil, TokenBlacklistService tokenBlacklistService, RoleRepository roleRepository) {
+                       JwtUtil jwtUtil, TokenBlacklistService tokenBlacklistService, RoleRepository roleRepository, LoginAttemptService loginAttemptService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.tokenBlacklistService = tokenBlacklistService;
         this.roleRepository = roleRepository;
-
+        this.loginAttemptService = loginAttemptService;
     }
 
     public String register(RegisterRequest request){
@@ -50,12 +51,21 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest request){
+        // 3 kere denme sınırı
+        if(loginAttemptService.isBlocked(request.email)){
+            throw new RuntimeException("Deneme sınırı aşıldı!");
+        }
+
         var user = userRepository.findByEmail(request.email)
                 .orElseThrow(() -> new RuntimeException("E posta bulunamadı."));
 
         if(!passwordEncoder.matches(request.password, user.getPassword())){
-            throw new RuntimeException("Şifre hatalı.");
+            System.out.println("girdi1");
+            loginAttemptService.loginFailed(request.email); // sayacı arttır
+            throw new RuntimeException("Şifre hatalı");
         }
+
+        loginAttemptService.loginSucceeded(request.email); // başarılıysa value'yi sıfırla
 
         // Eğer kullanıcının eski token'ları varsa blacklist'e ekle
         if (user.getLastToken() != null && !user.getLastToken().isEmpty()) {
@@ -73,7 +83,7 @@ public class AuthService {
         user.setLastToken(accessToken);
         user.setRefreshToken(refreshToken);
         userRepository.save(user);
-        
+
         return new LoginResponse(
             accessToken,
             refreshToken,

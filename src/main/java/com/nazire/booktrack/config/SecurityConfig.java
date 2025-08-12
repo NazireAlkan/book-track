@@ -43,6 +43,7 @@ public class SecurityConfig {
                         .requestMatchers("/h2-console/**").permitAll() // H2 Console erişimi
                         
                         // Protected endpoints - sadece authenticate olan kullanıcılar erişebilir
+                        .requestMatchers("/auth/status").authenticated()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/user/**").hasRole("USER")
                         .anyRequest().authenticated()
