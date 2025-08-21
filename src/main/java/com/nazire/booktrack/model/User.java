@@ -31,6 +31,24 @@ public class User {
     )
     private Set<Role> roles = new HashSet<>();
 
+    @ManyToMany
+    @JoinTable(
+            name = "user_favorites_books",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "book_id")
+    )
+    private Set<Book> favoritesBooks = new HashSet<>();
+
+    // kitap ekleme
+    @ManyToMany
+    @JoinTable(
+            name = "user_books",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "book_id")
+    )
+    private Set<Book> addBooks = new HashSet<>();
+
+
     public User() {}
 
     public User(String email, String password, String username) {
@@ -93,5 +111,21 @@ public class User {
 
     public void setRoles(Set<Role> roles) {
         this.roles = roles;
+    }
+
+    public Set<Book> getFavoritesBooks() {
+        return favoritesBooks;
+    }
+
+    public void setFavoritesBooks(Set<Book> favoritesBooks) {
+        this.favoritesBooks = favoritesBooks;
+    }
+
+    public Set<Book> getAddBooks() {
+        return addBooks;
+    }
+
+    public void setAddBooks(Set<Book> addBooks) {
+        this.addBooks = addBooks;
     }
 }
